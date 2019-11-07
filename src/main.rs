@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+mod vga_buffer;
+
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 
