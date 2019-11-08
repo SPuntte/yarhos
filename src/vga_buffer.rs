@@ -48,6 +48,7 @@ struct Buffer {
 }
 
 pub struct Writer {
+    row_position: usize,
     column_position: usize,
     color_code: ColorCode,
     buffer: &'static mut Buffer,
@@ -62,7 +63,7 @@ impl Writer {
                     self.new_line();
                 }
 
-                let row = BUFFER_HEIGHT - 1;
+                let row = self.row_position;
                 let col = self.column_position;
 
                 let color_code = self.color_code;
@@ -86,18 +87,46 @@ impl Writer {
         }
     }
 
-    fn new_line(&mut self) { /* TODO */
+    fn new_line(&mut self) {
+        if self.row_position >= BUFFER_HEIGHT - 1 {
+            for row in 1..BUFFER_HEIGHT {
+                for col in 0..BUFFER_WIDTH {
+                    let character = self.buffer.chars[row][col].read();
+                    self.buffer.chars[row - 1][col].write(character);
+                }
+            }
+            self.clear_row(BUFFER_HEIGHT - 1);
+        } else {
+            self.row_position += 1;
+        }
+        self.column_position = 0;
+    }
+
+    fn clear_row(&mut self, row: usize) {
+        let blank = ScreenChar {
+            ascii_character: b' ',
+            color_code: self.color_code,
+        };
+        for col in 0..BUFFER_WIDTH {
+            self.buffer.chars[row][col].write(blank);
+        }
     }
 }
 
 pub fn print_something() {
     let mut writer = Writer {
+        row_position: 0,
         column_position: 0,
         color_code: ColorCode::new(Color::LightGray, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     };
 
+    writer.write_string("Ohai, I can haz cheezburger?\n");
     writer.write_byte(b'H');
     writer.write_string("ello, ");
     writer.write_string("Wörld!");
+    for _ in 0..12 {
+        writer.write_string("\nOhai!");
+        writer.write_string("\nI can haz cheezburger?");
+    }
 }
