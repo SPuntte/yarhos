@@ -11,6 +11,7 @@ default-target = "yarhos-x86_64-nosse-softfloat.json"
 
 [dependencies]
 bootloader = "0.8.2"
+volatile = "0.2.6"
 
 [profile.dev]
 panic = "abort"
