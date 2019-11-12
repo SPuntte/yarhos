@@ -1,3 +1,4 @@
+use core::fmt;
 use volatile::Volatile;
 
 #[allow(dead_code)]
@@ -113,7 +114,15 @@ impl Writer {
     }
 }
 
+impl fmt::Write for Writer {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.write_string(s);
+        Ok(())
+    }
+}
+
 pub fn print_something() {
+    use core::fmt::Write;
     let mut writer = Writer {
         row_position: 0,
         column_position: 0,
@@ -121,12 +130,7 @@ pub fn print_something() {
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     };
 
-    writer.write_string("Ohai, I can haz cheezburger?\n");
     writer.write_byte(b'H');
-    writer.write_string("ello, ");
-    writer.write_string("Wörld!");
-    for _ in 0..12 {
-        writer.write_string("\nOhai!");
-        writer.write_string("\nI can haz cheezburger?");
-    }
+    writer.write_string("ello!\n");
+    writeln!(writer, "I can haz {} cheezburgerz?", 42).unwrap();
 }
