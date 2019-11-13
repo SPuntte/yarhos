@@ -36,3 +36,10 @@ fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
     loop {}
 }
+
+#[test_case]
+fn trivial_assertion() {
+    print!("trivial assertion... ");
+    assert_eq!(true, true);
+    println!("[ok]");
+}
