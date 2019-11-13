@@ -1,0 +1,5 @@
+[build]
+target = "yarhos-x86_64-nosse-softfloat.json"
+
+[target.'cfg(target_os = "none")']
+runner = "bootimage runner"
