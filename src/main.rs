@@ -11,7 +11,8 @@ entry_point!(_kernel_entry_point);
 #[no_mangle]
 #[allow(unreachable_code)]
 pub fn _kernel_entry_point(_boot_info: &'static BootInfo) -> ! {
-    println!("Hello, World{}", "!");
+    // The 'ö' here demostrates how non-ASCII characters are handled
+    println!("Hello, World{}", "! ö");
     panic!("Whoopsie ;)");
 
     // We'll never get this far, thus #[allow(unreachable_code)]
