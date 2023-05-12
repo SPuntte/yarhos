@@ -7,24 +7,17 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [package.metadata.bootimage]
-default-target = "yarhos-x86_64-nosse-softfloat.json"
 test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio", "-display", "none"]
 test-success-exit-code = 33
 test-timeout = 30
 
 [dependencies]
-bootloader = "0.8.2"
-spin = "0.5.2"
-uart_16550 = "0.2.1"
-volatile = "0.2.6"
-x86_64 = "0.7.5"
+bootloader = "0.9.23"
+spin = "0.9.8"
+uart_16550 = "0.2.18"
+volatile = "0.4.6"
+x86_64 = "0.14.2"
 
 [dependencies.lazy_static]
 version = "1.4.0"
 features = ["spin_no_std"]
-
-[profile.dev]
-panic = "abort"
-
-[profile.release]
-panic = "abort"

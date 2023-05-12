@@ -1,4 +1,7 @@
-use core::fmt;
+use core::{
+    fmt,
+    ops::{Deref, DerefMut},
+};
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
@@ -44,6 +47,20 @@ impl ColorCode {
 struct ScreenChar {
     ascii_character: u8,
     color_code: ColorCode,
+}
+
+impl DerefMut for ScreenChar {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self
+    }
+}
+
+impl Deref for ScreenChar {
+    type Target = ScreenChar;
+
+    fn deref(&self) -> &Self::Target {
+        self
+    }
 }
 
 /// The height of the VGA text buffer (commonly 25 lines).
