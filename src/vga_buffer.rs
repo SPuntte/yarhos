@@ -35,17 +35,26 @@ pub enum Color {
 struct ColorCode(u8);
 
 impl ColorCode {
-    /// Create a `ColorCode` with the given foreground and background colors.
     fn new(foreground: Color, background: Color) -> ColorCode {
         ColorCode((background as u8) << 4 | (foreground as u8))
     }
+
+    fn set_foreground(&mut self, color: Color) {
+        self.0 &= !0x0F;
+        self.0 |= color as u8;
+    }
+
+    fn set_background(&mut self, color: Color) {
+        self.0 &= !0xF0;
+        self.0 |= (color as u8) << 4;
+    }
 }
 
-/// A VGA text buffer character, consisting of an ASCII code point and a `ColorCode`.
+/// A VGA text buffer character, consisting of an IBM PC code point and a `ColorCode`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 struct ScreenChar {
-    ascii_character: u8,
+    code_point: u8,
     color_code: ColorCode,
 }
 
@@ -74,60 +83,103 @@ struct Buffer {
     chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
-/// A writer type that allows writing ASCII bytes and strings to an underlying `Buffer`.
+/// Controls whether `Writer` interprets control character bytes as glyphs.
+#[derive(Debug, Clone, Copy)]
+pub enum ControlCharMode {
+    Control,
+    Glyph,
+}
+
+/// A writer type that allows writing code page 437[^cp437] bytes and strings to an underlying `Buffer`.
 ///
-/// Wraps lines at `BUFFER_WIDTH`. Supports newline characters and implements `core::fmt::Write`.
+/// Wraps lines at `BUFFER_WIDTH`. Control character handling is controlled via `control_char_mode`.
+/// Implements `core::fmt::Write`.
+///
+/// [^cp437]: https://en.wikipedia.org/wiki/Code_page_437
 pub struct Writer {
     row_position: usize,
     column_position: usize,
     color_code: ColorCode,
+    control_char_mode: ControlCharMode,
     buffer: &'static mut Buffer,
 }
 
 impl Writer {
-    /// Writes an ASCII byte to the buffer.
+    /// Sets whether control character bytes are interpreted as glyphs.
+    pub fn set_control_mode(&mut self, control_char_mode: ControlCharMode) {
+        self.control_char_mode = control_char_mode;
+    }
+
+    /// Sets the active `Color`s.
+    pub fn set_color(&mut self, foreground: Color, background: Color) {
+        self.color_code = ColorCode::new(foreground, background);
+    }
+
+    /// Sets the active foreground `Color`.
+    pub fn set_fg_color(&mut self, color: Color) {
+        self.color_code.set_foreground(color);
+    }
+
+    /// Sets the active background `Color`.
+    pub fn set_bg_color(&mut self, color: Color) {
+        self.color_code.set_background(color);
+    }
+
+    /// Writes a byte to the buffer.
     ///
-    /// Wraps lines at `BUFFER_WIDTH`. Supports the `\n` newline character.
+    /// Wraps lines at `BUFFER_WIDTH`. The behavior regarding `\t`, `\n`, and `\r` is controlled
+    /// through `set_control_mode()`.
     pub fn write_byte(&mut self, byte: u8) {
-        match byte {
-            b'\n' => self.new_line(),
-            byte => {
-                if self.column_position >= BUFFER_WIDTH {
-                    self.new_line();
-                }
+        if matches!(self.control_char_mode, ControlCharMode::Control)
+            && self.handle_control_char(byte)
+        {
+            return;
+        }
 
-                let row = self.row_position;
-                let col = self.column_position;
+        if self.column_position >= BUFFER_WIDTH {
+            self.new_line();
+        }
 
-                let color_code = self.color_code;
-                self.buffer.chars[row][col].write(ScreenChar {
-                    ascii_character: byte,
-                    color_code,
-                });
-                self.column_position += 1;
-            }
+        let row = self.row_position;
+        let col = self.column_position;
+
+        let color_code = self.color_code;
+        self.buffer.chars[row][col].write(ScreenChar {
+            code_point: byte,
+            color_code,
+        });
+        self.column_position += 1;
+    }
+
+    /// Writes a string to the buffer.
+    ///
+    /// Interprets `s` as bytes and assumes the IBM PC character set (code page 437).
+    ///
+    /// Wraps lines at `BUFFER_WIDTH`. The behavior regarding `\t`, `\n`, and `\r` is controlled
+    /// through `set_control_mode()`.
+    pub fn write_string(&mut self, s: &str) {
+        // TODO: Support conversion from Unicode via the codepage_437 crate?
+        for byte in s.bytes() {
+            self.write_byte(byte);
         }
     }
 
-    /// Writes an ASCII string to the buffer.
+    /// Outputs the full code page 437 character set as a 16 by 16 block.
     ///
-    /// Wraps lines at `BUFFER_WIDTH`. Supports the `\n` newline character.  Replaces non-ASCII
-    /// characters with pink hearts <3.
-    pub fn write_string(&mut self, s: &str) {
-        for byte in s.bytes() {
-            match byte {
-                // printable ASCII byte or newline
-                0x20..=0x7e | b'\n' => self.write_byte(byte),
-                // not part of printable ASCII range -> print a pink ♥
-                // assumes the original IBM PC character set (code page 437)
-                _ => {
-                    let old_color_code = self.color_code;
-                    self.color_code = ColorCode::new(Color::Pink, Color::DarkGray);
-                    self.write_byte(0x03);
-                    self.color_code = old_color_code;
-                }
-            }
+    /// Disregards but preserves current `ControlCharMode`.
+    pub fn print_character_set(&mut self) {
+        let ccmode_save = self.control_char_mode;
+        self.control_char_mode = ControlCharMode::Glyph;
+        if self.column_position > 0 {
+            self.new_line();
         }
+        for row in 0..0x10u8 {
+            for col in 0..0x10u8 {
+                self.write_byte((row << 4) | col);
+            }
+            self.new_line();
+        }
+        self.control_char_mode = ccmode_save;
     }
 
     /// Advances one line (row) and returns to the first column *unless* already on the last row in
@@ -141,21 +193,44 @@ impl Writer {
                     self.buffer.chars[row - 1][col].write(character);
                 }
             }
-            self.clear_row(BUFFER_HEIGHT - 1);
+            let blank = ScreenChar {
+                code_point: b' ',
+                color_code: self.color_code,
+            };
+            self.clear_row(BUFFER_HEIGHT - 1, blank);
         } else {
             self.row_position += 1;
         }
         self.column_position = 0;
     }
 
-    /// Clears a row by overwriting it with space characters.
-    fn clear_row(&mut self, row: usize) {
-        let blank = ScreenChar {
-            ascii_character: b' ',
-            color_code: self.color_code,
-        };
+    /// Clears a row by overwriting it.
+    fn clear_row(&mut self, row: usize, blank: ScreenChar) {
         for col in 0..BUFFER_WIDTH {
             self.buffer.chars[row][col].write(blank);
+        }
+    }
+
+    fn handle_control_char(&mut self, byte: u8) -> bool {
+        assert!(
+            matches!(self.control_char_mode, ControlCharMode::Control),
+            "Writer::handle_control_char() called in glyph mode."
+        );
+        match byte {
+            b'\t' => {
+                // TODO: variable tab width
+                self.write_byte(b' ');
+                true
+            }
+            b'\n' => {
+                self.new_line();
+                true
+            }
+            b'\r' => {
+                self.column_position = 0;
+                true
+            }
+            _ => false,
         }
     }
 }
@@ -174,6 +249,7 @@ lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         row_position: 0,
         column_position: 0,
+        control_char_mode: ControlCharMode::Control,
         color_code: ColorCode::new(Color::LightGray, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
@@ -188,8 +264,7 @@ macro_rules! print {
 /// Like the `println!` macro in `std`, but prints to the VGA text buffer.
 #[macro_export]
 macro_rules! println {
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::vga_buffer::_println(format_args!($($arg)*)));
 }
 
 /// Prints the given formatted string to the VGA text buffer through the global `WRITER` instance.
@@ -197,4 +272,38 @@ macro_rules! println {
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     WRITER.lock().write_fmt(args).unwrap();
+}
+
+#[doc(hidden)]
+pub fn _println(args: fmt::Arguments) {
+    use core::fmt::Write;
+    let mut w = WRITER.lock();
+    w.write_fmt(args).unwrap();
+    w.new_line();
+}
+
+/// Sets whether `WRITER` interprets control character bytes as glyphs.
+pub fn set_control_mode(control_char_mode: ControlCharMode) {
+    WRITER.lock().set_control_mode(control_char_mode);
+}
+
+/// Sets the active `Color`s (foreground and background) for `WRITER`.
+pub fn set_color(foreground: Color, background: Color) {
+    WRITER.lock().set_color(foreground, background);
+}
+
+/// Sets the active foreground `Color` for `WRITER`.
+pub fn set_fg_color(color: Color) {
+    WRITER.lock().set_fg_color(color);
+}
+
+/// Sets the active background `Color` for `WRITER`.
+pub fn set_bg_color(color: Color) {
+    WRITER.lock().set_bg_color(color);
+}
+
+/// Using `WRITER`, outputs the full code page 437 character set as a 16 by 16
+/// block.
+pub fn print_character_set() {
+    WRITER.lock().print_character_set()
 }

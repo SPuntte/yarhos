@@ -12,16 +12,38 @@ use core::panic::PanicInfo;
 
 entry_point!(_kernel_entry_point);
 
+/// Conserve energy by halting the CPU
+#[allow(unreachable_code)]
+fn halt() -> ! {
+    x86_64::instructions::hlt();
+    unreachable!("Unexpected wakeup.");
+    loop {}
+}
+
 #[no_mangle]
 #[allow(unreachable_code)]
 pub fn _kernel_entry_point(_boot_info: &'static BootInfo) -> ! {
-    // The 'ö' here demostrates how non-ASCII characters are handled
+    use vga_buffer::{Color, ControlCharMode};
+
+    vga_buffer::set_color(Color::LightCyan, Color::Black);
+    // TODO: code page 437 conversion from Unicode
     println!("Hello, World{}", "! ö");
+
+    vga_buffer::set_color(Color::LightGreen, Color::DarkGray);
+    vga_buffer::print_character_set();
+
+    vga_buffer::set_fg_color(Color::Red);
+    vga_buffer::set_control_mode(ControlCharMode::Glyph);
+    println!("A\tB\rC\nD");
+
+    vga_buffer::set_bg_color(Color::White);
+    vga_buffer::set_control_mode(ControlCharMode::Control);
+    println!("A\tB\rC\nD");
 
     #[cfg(test)]
     test_main();
 
-    loop {}
+    halt();
 }
 
 #[cfg(test)]
@@ -37,7 +59,7 @@ fn test_runner(tests: &[&dyn Fn()]) {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+    halt();
 }
 
 #[cfg(test)]
@@ -46,7 +68,7 @@ fn panic(info: &PanicInfo) -> ! {
     serial_println!("[failed]\n");
     serial_println!("Error: {}\n", info);
     exit_qemu(QemuExitCode::Failure);
-    loop {}
+    halt();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
