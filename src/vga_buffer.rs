@@ -90,7 +90,7 @@ pub enum ControlCharMode {
     Glyph,
 }
 
-/// A writer type that allows writing code page 437[^cp437] bytes and strings to an underlying `Buffer`.
+/// A writer type that allows writing code page 437[^cp437] bytes and strings to an underlying buffer.
 ///
 /// Wraps lines at `BUFFER_WIDTH`. Control character handling is controlled via `control_char_mode`.
 /// Implements `core::fmt::Write`.
@@ -180,6 +180,26 @@ impl Writer {
             self.new_line();
         }
         self.control_char_mode = ccmode_save;
+    }
+
+    /// Clears the underlying buffer with current backroung color and places the cursor at the
+    /// upper left corner.
+    pub fn clear(&mut self) {
+        let blank = ScreenChar {
+            code_point: b' ',
+            color_code: self.color_code,
+        };
+        self.fill(blank);
+        self.row_position = 0;
+        self.column_position = 0;
+    }
+
+    fn fill(&mut self, character: ScreenChar) {
+        for row in 0..BUFFER_HEIGHT {
+            for col in 0..BUFFER_WIDTH {
+                self.buffer.chars[row][col].write(character);
+            }
+        }
     }
 
     /// Advances one line (row) and returns to the first column *unless* already on the last row in
@@ -306,4 +326,34 @@ pub fn set_bg_color(color: Color) {
 /// block.
 pub fn print_character_set() {
     WRITER.lock().print_character_set()
+}
+
+/// Clears the `WRITER` buffer with currently active background color and resets the cursor.
+pub fn clear() {
+    WRITER.lock().clear()
+}
+
+#[test_case]
+fn test_println_simple() {
+    println!("test_println_simple output");
+}
+
+#[test_case]
+fn test_println_many() {
+    for _ in 0..200 {
+        println!("test_println_many output");
+    }
+}
+
+#[test_case]
+fn test_println_output() {
+    clear();
+    let s = "The quick brown foz jumps over the lazy dog.";
+    assert!(s.len() <= BUFFER_WIDTH);
+    println!("{}", s);
+    for (i, c) in s.chars().enumerate() {
+        // test_println_many() has filled the buffer and the last println!() appended a newline
+        let screen_char = WRITER.lock().buffer.chars[0][i].read();
+        assert_eq!(char::from(screen_char.code_point), c);
+    }
 }

@@ -40,6 +40,15 @@ pub fn _kernel_entry_point(_boot_info: &'static BootInfo) -> ! {
     vga_buffer::set_control_mode(ControlCharMode::Control);
     println!("A\tB\rC\nD");
 
+    // HACK: busy wait for some time
+    for _ in 0..5_000_000 {
+        x86_64::instructions::nop();
+    }
+
+    vga_buffer::set_color(Color::Pink, Color::Black);
+    vga_buffer::clear();
+    println!("Ohai :3");
+
     #[cfg(test)]
     test_main();
 
