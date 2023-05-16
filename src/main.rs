@@ -47,10 +47,10 @@ pub fn _kernel_entry_point(_boot_info: &'static BootInfo) -> ! {
 }
 
 #[cfg(test)]
-fn test_runner(tests: &[&dyn Fn()]) {
+fn test_runner(tests: &[&dyn Testable]) {
     serial_println!("Running {} tests", tests.len());
     for test in tests {
-        test();
+        test.run();
     }
     exit_qemu(QemuExitCode::Success);
 }
@@ -92,7 +92,20 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 
 #[test_case]
 fn trivial_assertion() {
-    serial_print!("trivial assertion... ");
     assert_eq!(true, true);
-    serial_println!("[ok]");
+}
+
+pub trait Testable {
+    fn run(&self);
+}
+
+impl<T> Testable for T
+where
+    T: Fn(),
+{
+    fn run(&self) {
+        serial_print!("{}...\t", core::any::type_name::<T>());
+        self();
+        serial_println!("[ok]");
+    }
 }
