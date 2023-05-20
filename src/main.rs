@@ -20,6 +20,12 @@ pub fn _kernel_entry_point(_boot_info: &'static BootInfo) -> ! {
     // TODO: code page 437 conversion from Unicode
     println!("Hello, World{}", "! ö");
 
+    // Set up IDT
+    yarhos::init();
+
+    // Artificially cause a breakpoint exception
+    x86_64::instructions::interrupts::int3();
+
     vga_buffer::set_color(Color::LightGreen, Color::DarkGray);
     vga_buffer::print_character_set();
 

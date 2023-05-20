@@ -1,9 +1,11 @@
 #![no_std]
 #![cfg_attr(test, no_main)]
+#![feature(abi_x86_interrupt)]
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+pub mod interrupts;
 pub mod serial;
 pub mod vga_buffer;
 
@@ -53,12 +55,17 @@ pub fn halt() -> ! {
     loop {}
 }
 
+pub fn init() {
+    interrupts::init_idt();
+}
+
 #[cfg(test)]
 entry_point!(_test_start);
 
 #[cfg(test)]
 #[no_mangle]
 pub fn _test_start(_boot_info: &'static BootInfo) -> ! {
+    init();
     test_main();
     halt()
 }
