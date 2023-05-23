@@ -23,8 +23,14 @@ pub fn _kernel_entry_point(_boot_info: &'static BootInfo) -> ! {
     // Set up IDT
     yarhos::init();
 
-    // Artificially cause a breakpoint exception
-    x86_64::instructions::interrupts::int3();
+    #[allow(dead_code)]
+    #[allow(unconditional_recursion)]
+    fn stack_overflow() {
+        stack_overflow();
+    }
+
+    // Uncomment for a stack overflow
+    //stack_overflow();
 
     vga_buffer::set_color(Color::LightGreen, Color::DarkGray);
     vga_buffer::print_character_set();
@@ -49,6 +55,7 @@ pub fn _kernel_entry_point(_boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
+    println!("It did not crash :o");
     yarhos::halt()
 }
 
