@@ -2,8 +2,9 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
-use bootloader::{entry_point, BootInfo};
 use core::{ops::Deref, panic::PanicInfo};
+
+use bootloader::{entry_point, BootInfo};
 use lazy_static::lazy_static;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 

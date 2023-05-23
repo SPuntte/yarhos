@@ -4,9 +4,9 @@
 #![test_runner(yarhos::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 
+use bootloader::{entry_point, BootInfo};
 use yarhos::{println, vga_buffer};
 
 entry_point!(_kernel_entry_point);

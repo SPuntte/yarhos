@@ -10,9 +10,10 @@ pub mod interrupts;
 pub mod serial;
 pub mod vga_buffer;
 
+use core::panic::PanicInfo;
+
 #[cfg(test)]
 use bootloader::{entry_point, BootInfo};
-use core::panic::PanicInfo;
 
 pub trait Testable {
     fn run(&self);

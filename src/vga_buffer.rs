@@ -2,6 +2,7 @@ use core::{
     fmt,
     ops::{Deref, DerefMut},
 };
+
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;

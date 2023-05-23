@@ -4,8 +4,9 @@
 #![test_runner(yarhos::test_runner_should_panic)]
 #![reexport_test_harness_main = "test_main"]
 
-use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
+
+use bootloader::{entry_point, BootInfo};
 
 entry_point!(_test_start);
 
