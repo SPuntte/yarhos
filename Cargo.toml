@@ -16,7 +16,9 @@ test-timeout = 30
 
 [dependencies]
 bootloader = "0.9.23"
+pic8259 = "0.10.4"
 spin = "0.9.8"
+static_assertions = "1.1.0"
 uart_16550 = "0.2.18"
 volatile = "0.4.6"
 x86_64 = "0.14.2"

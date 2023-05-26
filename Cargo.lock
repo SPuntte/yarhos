@@ -46,6 +46,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pic8259"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb844b5b01db1e0b17938685738f113bfc903846f18932b378bc0eabfa40e194"
+dependencies = [
+ "x86_64",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -71,6 +80,12 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 dependencies = [
  "lock_api",
 ]
+
+[[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "uart_16550"
@@ -107,7 +122,9 @@ version = "0.1.0"
 dependencies = [
  "bootloader",
  "lazy_static",
+ "pic8259",
  "spin 0.9.8",
+ "static_assertions",
  "uart_16550",
  "volatile",
  "x86_64",
