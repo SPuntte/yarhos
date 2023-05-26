@@ -1,7 +1,4 @@
-use core::{
-    fmt,
-    ops::{Deref, DerefMut},
-};
+use core::ops::{Deref, DerefMut};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -256,8 +253,8 @@ impl Writer {
     }
 }
 
-impl fmt::Write for Writer {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
+impl core::fmt::Write for Writer {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.write_string(s);
         Ok(())
     }
@@ -290,48 +287,57 @@ macro_rules! println {
 
 /// Prints the given formatted string to the VGA text buffer through the global `WRITER` instance.
 #[doc(hidden)]
-pub fn _print(args: fmt::Arguments) {
+pub fn _print(args: core::fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    });
 }
 
 #[doc(hidden)]
-pub fn _println(args: fmt::Arguments) {
+pub fn _println(args: core::fmt::Arguments) {
     use core::fmt::Write;
-    let mut w = WRITER.lock();
-    w.write_fmt(args).unwrap();
-    w.new_line();
+
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut w = WRITER.lock();
+        w.write_fmt(args).unwrap();
+        w.new_line();
+    });
 }
 
 /// Sets whether `WRITER` interprets control character bytes as glyphs.
 pub fn set_control_mode(control_char_mode: ControlCharMode) {
-    WRITER.lock().set_control_mode(control_char_mode);
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        WRITER.lock().set_control_mode(control_char_mode);
+    });
 }
 
 /// Sets the active `Color`s (foreground and background) for `WRITER`.
 pub fn set_color(foreground: Color, background: Color) {
-    WRITER.lock().set_color(foreground, background);
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        WRITER.lock().set_color(foreground, background);
+    });
 }
 
 /// Sets the active foreground `Color` for `WRITER`.
 pub fn set_fg_color(color: Color) {
-    WRITER.lock().set_fg_color(color);
+    x86_64::instructions::interrupts::without_interrupts(|| WRITER.lock().set_fg_color(color));
 }
 
 /// Sets the active background `Color` for `WRITER`.
 pub fn set_bg_color(color: Color) {
-    WRITER.lock().set_bg_color(color);
+    x86_64::instructions::interrupts::without_interrupts(|| WRITER.lock().set_bg_color(color));
 }
 
 /// Using `WRITER`, outputs the full code page 437 character set as a 16 by 16
 /// block.
 pub fn print_character_set() {
-    WRITER.lock().print_character_set()
+    x86_64::instructions::interrupts::without_interrupts(|| WRITER.lock().print_character_set());
 }
 
 /// Clears the `WRITER` buffer with currently active background color and resets the cursor.
 pub fn clear() {
-    WRITER.lock().clear()
+    x86_64::instructions::interrupts::without_interrupts(|| WRITER.lock().clear());
 }
 
 #[test_case]
@@ -348,13 +354,18 @@ fn test_println_many() {
 
 #[test_case]
 fn test_println_output() {
-    clear();
+    use core::fmt::Write;
+
     let s = "The quick brown foz jumps over the lazy dog.";
     assert!(s.len() <= BUFFER_WIDTH);
-    println!("{}", s);
-    for (i, c) in s.chars().enumerate() {
-        // test_println_many() has filled the buffer and the last println!() appended a newline
-        let screen_char = WRITER.lock().buffer.chars[0][i].read();
-        assert_eq!(char::from(screen_char.code_point), c);
-    }
+
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut w = WRITER.lock();
+        w.clear();
+        writeln!(w, "{}", s).expect("writeln!() failed");
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = w.buffer.chars[0][i].read();
+            assert_eq!(char::from(screen_char.code_point), c);
+        }
+    });
 }
