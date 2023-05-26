@@ -33,7 +33,7 @@ extern "x86-interrupt" fn test_double_fault_handler(
 ) -> ! {
     yarhos::serial_println!("[ok]");
     yarhos::exit_qemu(yarhos::QemuExitCode::Success);
-    yarhos::halt();
+    yarhos::hang();
 }
 
 // Define a test-specific interrupt descriptor table to catch a double fault induced by a kernel

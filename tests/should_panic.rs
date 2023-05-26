@@ -13,7 +13,7 @@ entry_point!(_test_start);
 #[no_mangle]
 pub fn _test_start(_boot_info: &'static BootInfo) -> ! {
     test_main();
-    yarhos::halt();
+    yarhos::halt_loop();
 }
 
 #[panic_handler]

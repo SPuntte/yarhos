@@ -56,14 +56,14 @@ pub fn _kernel_entry_point(_boot_info: &'static BootInfo) -> ! {
     test_main();
 
     println!("It did not crash :o");
-    yarhos::halt()
+    yarhos::halt_loop();
 }
 
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    yarhos::halt()
+    yarhos::hang();
 }
 
 #[cfg(test)]

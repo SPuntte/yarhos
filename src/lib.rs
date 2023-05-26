@@ -49,13 +49,17 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
     }
 }
 
-/// Conserve energy by halting the CPU
-#[allow(unreachable_code)]
-#[allow(clippy::empty_loop)]
-pub fn halt() -> ! {
-    x86_64::instructions::hlt();
-    unreachable!("Unexpected wakeup.");
-    loop {}
+/// Conserve energy by halting the CPU.
+pub fn halt_loop() -> ! {
+    loop {
+        x86_64::instructions::interrupts::enable_and_hlt();
+    }
+}
+
+/// Hang by disabling interrupts and invoking the HLT instruction.
+pub fn hang() -> ! {
+    x86_64::instructions::interrupts::without_interrupts(x86_64::instructions::hlt);
+    unreachable!("Unexpected wakeup with interrupts disabled");
 }
 
 pub fn init() {
@@ -73,7 +77,7 @@ entry_point!(_test_start);
 pub fn _test_start(_boot_info: &'static BootInfo) -> ! {
     init();
     test_main();
-    halt()
+    halt_loop();
 }
 
 pub fn test_runner(tests: &[&dyn Testable]) {
@@ -98,13 +102,13 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     serial_println!("[failed]\n");
     serial_println!("Error: {}\n", info);
     exit_qemu(QemuExitCode::Failure);
-    halt()
+    hang();
 }
 
 pub fn test_panic_handler_should_panic(_info: &PanicInfo) -> ! {
     serial_println!("[ok]");
     exit_qemu(QemuExitCode::Success);
-    halt();
+    hang();
 }
 
 #[cfg(test)]
